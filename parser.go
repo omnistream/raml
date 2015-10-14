@@ -45,8 +45,8 @@ import (
 // Parse a RAML file. Returns a raml.APIDefinition value or an error if
 // everything is something went wrong.
 // This is the main entry point to the RAML parser.
-func ParseFile(filePath string) (*APIDefinition, error) {
 
+func ParseFile(filePath string) (*APIDefinition, error) {
 	// Get the working directory
 	workingDirectory, fileName := filepath.Split(filePath)
 
@@ -59,6 +59,24 @@ func ParseFile(filePath string) (*APIDefinition, error) {
 
 	// Get the contents of the main file
 	mainFileBuffer := bytes.NewBuffer(mainFileBytes)
+
+	// Pre-process the original file, following !include directive
+	preprocessedContentsBytes, err :=
+		preProcess(mainFileBuffer, workingDirectory)
+
+	if err != nil {
+		return nil,
+			fmt.Errorf("Error preprocessing RAML file (Error: %s)", err.Error())
+	}
+	return ParseBytes(preprocessedContentsBytes)
+}
+
+func ParseBytes(value []byte) (*APIDefinition, error) {
+	var (
+		err error
+	)
+	// Get the contents of the main file
+	mainFileBuffer := bytes.NewBuffer(value)
 
 	// Verify the YAML version
 	var ramlVersion string
@@ -82,13 +100,13 @@ func ParseFile(filePath string) (*APIDefinition, error) {
 	}
 
 	// Pre-process the original file, following !include directive
-	preprocessedContentsBytes, err :=
-		preProcess(mainFileBuffer, workingDirectory)
+	//preprocessedContentsBytes, err :=
+	//		preProcess(mainFileBuffer, workingDirectory)
 
-	if err != nil {
-		return nil,
-			fmt.Errorf("Error preprocessing RAML file (Error: %s)", err.Error())
-	}
+	//if err != nil {
+	//	return nil,
+	//		fmt.Errorf("Error preprocessing RAML file (Error: %s)", err.Error())
+	//}
 
 	//pretty.Println(string(preprocessedContentsBytes))
 
@@ -97,7 +115,8 @@ func ParseFile(filePath string) (*APIDefinition, error) {
 	apiDefinition.RAMLVersion = ramlVersion
 
 	// Go!
-	err = yaml.Unmarshal(preprocessedContentsBytes, apiDefinition)
+	//err = yaml.Unmarshal(preprocessedContentsBytes, apiDefinition)
+	err = yaml.Unmarshal(mainFileBuffer.Bytes(), apiDefinition)
 
 	// Any errors?
 	if err != nil {
