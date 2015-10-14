@@ -140,7 +140,7 @@ type Documentation struct {
 // Resources CAN have alternate representations. For example, an API might
 // support both JSON and XML representations.
 type Body struct {
-	mediaType string `yaml:"mediaType"`
+	MediaType string `yaml:"mediaType"`
 	// TODO: Fill this during the post-processing phase
 
 	// The structure of a request or response body MAY be further specified
@@ -152,6 +152,8 @@ type Body struct {
 	// Alternatively, the value of the schema field MAY be the name of a schema
 	// specified in the root-level schemas property
 	Schema string `yaml:"schema"`
+
+	ContentType string
 
 	// Brief description
 	Description string `yaml:"description"`
@@ -166,15 +168,15 @@ type Body struct {
 	// The formParameters property is a map in which the key is the name of
 	// the web form parameter, and the value is itself a map the specifies
 	// the web form parameter's attributes
-	FormParameters map[string]NamedParameter `yaml:"formParameters"`
+	FormParameters map[string]*NamedParameter `yaml:"formParameters"`
 	// TODO: This doesn't make sense in response bodies.. separate types for
 	// request and response body?
 
-	Headers map[HTTPHeader]Header `yaml:"headers"`
+	Headers map[HTTPHeader]*Header `yaml:"headers"`
 }
 
 // Container of Body types, necessary because of technical reasons.
-type Bodies struct {
+type TempBodies struct {
 
 	// Instead of using a simple map[HTTPHeader]Body for the body
 	// property of the Response and Method, we use the Bodies struct. Why?
@@ -199,19 +201,20 @@ type Bodies struct {
 	//           }
 
 	// As in the Body type.
-	DefaultSchema string `yaml:"schema"`
+	//DefaultSchema string `yaml:"schema"`
 
 	// As in the Body type.
-	DefaultDescription string `yaml:"description"`
+	//DefaultDescription string `yaml:"description"`
 
 	// As in the Body type.
-	DefaultExample string `yaml:"example"`
+	//DefaultExample string `yaml:"example"`
 
 	// As in the Body type.
-	DefaultFormParameters map[string]NamedParameter `yaml:"formParameters"`
+	//DefaultFormParameters map[string]NamedParameter `yaml:"formParameters"`
 
+	//List []*Body
 	// TODO: Is this ever used? I think I put it here by mistake.
-	//Headers               map[HTTPHeader]Header     `yaml:"headers"`
+	//Headers map[HTTPHeader]Header `yaml:"headers"`
 
 	// Resources CAN have alternate representations. For example, an API
 	// might support both JSON and XML representations. This is the map
@@ -223,6 +226,17 @@ type Bodies struct {
 	// not matching other defined data types MUST be accepted. Processing
 	// applications MUST match the most descriptive media type first if
 	// "*/*" is used.
+}
+
+type Bodies struct {
+	items []Body
+}
+
+func (b *Bodies) Add(body Body) {
+	b.items = append(b.items, body)
+}
+func (b *Bodies) Get() []Body {
+	return b.items
 }
 
 // Resource methods MAY have one or more responses.
@@ -237,7 +251,7 @@ type Response struct {
 	Description string
 
 	// An API's methods may support custom header values in responses
-	Headers map[HTTPHeader]Header `yaml:"headers"`
+	Headers map[HTTPHeader]*Header `yaml:"headers"`
 
 	// TODO: API's may include the the placeholder token {?} in a header name
 	// to indicate that any number of headers that conform to the specified
@@ -247,7 +261,8 @@ type Response struct {
 
 	// Each response MAY contain a body property. Responses that can return
 	// more than one response code MAY therefore have multiple bodies defined.
-	Bodies Bodies `yaml:"body"`
+	TempBodies *TempBodies `yaml:"body"`
+	Bodies     *Bodies
 }
 
 // A ResourceType/Trait/SecurityScheme choice contains the name of a
@@ -255,6 +270,8 @@ type Response struct {
 // an instance of it.
 // Parameters MUST be of type string.
 type DefinitionParameters map[string]string
+type TempDefinitionChoice interface{}
+
 type DefinitionChoice struct {
 	Name string
 
@@ -331,16 +348,17 @@ type Trait struct {
 	Description string
 
 	// As in Method.
-	Bodies Bodies `yaml:"body"`
+	TempBodies *TempBodies `yaml:"body"`
+	Bodies     *Bodies
 
 	// As in Method.
-	Headers map[HTTPHeader]Header `yaml:"headers"`
+	Headers map[HTTPHeader]*Header `yaml:"headers"`
 
 	// As in Method.
-	Responses map[HTTPCode]Response `yaml:"responses"`
+	Responses map[HTTPCode]*Response `yaml:"responses"`
 
 	// As in Method.
-	QueryParameters map[string]NamedParameter `yaml:"queryParameters"`
+	QueryParameters map[string]*NamedParameter `yaml:"queryParameters"`
 
 	// As in Method.
 	Protocols []string `yaml:"protocols"`
@@ -356,10 +374,10 @@ type Trait struct {
 	// should be applied if the property name itself (without the question
 	// mark) is already defined (whether explicitly or implicitly) at the
 	// corresponding level in that resource or method.
-	OptionalBodies          Bodies                    `yaml:"body?"`
-	OptionalHeaders         map[HTTPHeader]Header     `yaml:"headers?"`
-	OptionalResponses       map[HTTPCode]Response     `yaml:"responses?"`
-	OptionalQueryParameters map[string]NamedParameter `yaml:"queryParameters?"`
+	OptionalBodies          *TempBodies                `yaml:"body?"`
+	OptionalHeaders         map[HTTPHeader]*Header     `yaml:"headers?"`
+	OptionalResponses       map[HTTPCode]*Response     `yaml:"responses?"`
+	OptionalQueryParameters map[string]*NamedParameter `yaml:"queryParameters?"`
 }
 
 // Method that is part of a ResourceType. DIfferentiated from Traits since it
@@ -372,14 +390,15 @@ type ResourceTypeMethod struct {
 	Description string
 
 	// As in Method.
-	Bodies Bodies `yaml:"body"`
+	TempBodies TempBodies `yaml:"body"`
+	Bodies     Bodies
 	// TODO: Check - how does the mediaType play play here? What it do?
 
 	// As in Method.
-	Headers map[HTTPHeader]Header `yaml:"headers"`
+	Headers map[HTTPHeader]*Header `yaml:"headers"`
 
 	// As in Method.
-	Responses map[HTTPCode]Response `yaml:"responses"`
+	Responses map[HTTPCode]*Response `yaml:"responses"`
 
 	// As in Method.
 	QueryParameters map[string]NamedParameter `yaml:"queryParameters"`
@@ -478,14 +497,17 @@ type ResourceType struct {
 	OptionalPatch             *ResourceTypeMethod       `yaml:"patch?"`
 }
 
+type Schema string
+
 // A trait-like structure to a security scheme mechanism so as to extend
 // the mechanism, such as specifying response codes, HTTP headers or custom
 // documentation.
 type SecuritySchemeMethod struct {
-	Bodies          Bodies                    `yaml:"body"`
-	Headers         map[HTTPHeader]Header     `yaml:"headers"`
-	Responses       map[HTTPCode]Response     `yaml:"responses"`
-	QueryParameters map[string]NamedParameter `yaml:"queryParameters"`
+	TempBodies      *TempBodies `yaml:"body"`
+	Bodies          *Bodies
+	Headers         map[HTTPHeader]*Header     `yaml:"headers"`
+	Responses       map[HTTPCode]*Response     `yaml:"responses"`
+	QueryParameters map[string]*NamedParameter `yaml:"queryParameters"`
 }
 
 // Most REST APIs have one or more mechanisms to secure data access, identify
@@ -495,12 +517,12 @@ type SecurityScheme struct {
 	// TODO: Fill this during the post-processing phase
 
 	// Briefly describes the security scheme
-	Description string
+	Description string `yaml:"description"`
 
 	// The type attribute MAY be used to convey information about
 	// authentication flows and mechanisms to processing applications
 	// such as Documentation Generators and Client generators.
-	Type string
+	Type string `yaml:"type"`
 	// TODO: Verify that it is of the values accepted: "OAuth 1.0",
 	// "OAuth 2.0", "Basic Authentication", "Digest Authentication",
 	// "x-{other}"
@@ -513,12 +535,12 @@ type SecurityScheme struct {
 	// SHOULD describe the security schemes' required artifacts, such as
 	// headers, URI parameters, and so on.
 	// Including the security schemes' description completes an API's documentation.
-	DescribedBy SecuritySchemeMethod
+	DescribedBy *SecuritySchemeMethod `yaml:"describedBy"`
 
 	// The settings attribute MAY be used to provide security schema-specific
 	// information. Depending on the value of the type parameter, its attributes
 	// can vary.
-	Settings map[string]Any
+	Settings map[string]Any `yaml:"settings"`
 	// TODO: Verify OAuth 1.0, 2.0 settings
 	// TODO: Add to documentaiotn
 
@@ -541,14 +563,16 @@ type Method struct {
 	// the method is protected using a specific security scheme, the method
 	// MUST be defined by using the securedBy attribute
 	// Custom parameters can be provided to the security scheme.
-	SecuredBy []DefinitionChoice `yaml:"securedBy"`
+	//SecuredBy []*DefinitionChoice `yaml:"securedBy"`
+	TempSecuredBy []interface{} `yaml:"securedBy"`
+	SecuredBy     []*DefinitionChoice
 	// TODO: To indicate that the method may be called without applying any
 	// securityScheme, the method may be annotated with the null securityScheme.
 
 	// The method's non-standard HTTP headers. The headers property is a map
 	// in which the key is the name of the header, and the value is itself a
 	// map specifying the header attributes.
-	Headers map[HTTPHeader]Header `yaml:"headers"`
+	Headers map[HTTPHeader]*Header `yaml:"headers"`
 	// TODO: Examples for headers are REQUIRED.
 	// TODO: If the header name contains the placeholder token {*}, processing
 	// applications MUST allow requests to send any number of headers that
@@ -566,12 +590,13 @@ type Method struct {
 	// The queryParameters property is a map in which the key is the query
 	// parameter's name, and the value is itself a map specifying the query
 	//  parameter's attributes
-	QueryParameters map[string]NamedParameter `yaml:"queryParameters"`
+	QueryParameters map[string]*NamedParameter `yaml:"queryParameters"`
 
 	// Some method verbs expect the resource to be sent as a request body.
 	// A method's body is defined in the body property as a hashmap, in which
 	// the key MUST be a valid media type.
-	Bodies Bodies `yaml:"body"`
+	TempBodies *TempBodies `yaml:"body"`
+	Bodies     *Bodies
 	// TODO: Check - how does the mediaType play play here? What it do?
 
 	// Resource methods MAY have one or more responses. Responses MAY be
@@ -579,7 +604,7 @@ type Method struct {
 	// attributes or schema properties.
 	// Responses MUST be a map of one or more HTTP status codes, where each
 	// status code itself is a map that describes that status code.
-	Responses map[HTTPCode]Response `yaml:"responses"`
+	Responses map[HTTPCode]*Response `yaml:"responses"`
 
 	// Methods may specify one or more traits from which they inherit using the
 	// is property
@@ -612,7 +637,9 @@ type Resource struct {
 	// securedBy key, which is equivalent to applying the securityScheme to
 	// all methods of this Resource.
 	// Custom parameters can be provided to the security scheme.
-	SecuredBy []DefinitionChoice `yaml:"securedBy"`
+	//SecuredBy []DefinitionChoice `yaml:"securedBy"`
+	TempSecuredBy []interface{} `yaml:"securedBy"`
+	SecuredBy     []*DefinitionChoice
 	// TODO: To indicate that the method may be called without applying any
 	// securityScheme, the method may be annotated with the null securityScheme.
 
@@ -755,27 +782,29 @@ type APIDefinition struct {
 	// The value of the schemas property is an array of maps; in each map,
 	// the keys are the schema name, and the values are schema definitions:
 	// []map[SchemaName]SchemaString
-	Schemas []map[string]string
+	Schemas []map[string]string `yaml:"schemas"`
 	// TODO: Flatten the arrays of maps here.
 
 	// The securitySchemes property MUST be used to specify an API's security
 	// mechanisms, including the required settings and the authentication
 	// methods that the API supports.
 	// []map[SchemeName]SecurityScheme
-	SecuritySchemes []map[string]SecurityScheme `yaml:"securitySchemes"`
+	SecuritySchemes []map[string]*SecurityScheme `yaml:"securitySchemes"`
 	// TODO: Flatten the arrays of maps here.
 
 	// To apply a securityScheme definition to every method in an API, the
 	// API MAY be defined using the securedBy attribute. This specifies that
 	// all methods in the API are protected using that security scheme.
 	// Custom parameters can be provided to the security scheme.
-	SecuredBy []DefinitionChoice `yaml:"securedBy"`
+	//SecuredBy []DefinitionChoice `yaml:"securedBy"`
+	TempSecuredBy []interface{} `yaml:"securedBy"`
+	SecuredBy     []*DefinitionChoice
 
 	// The API definition can include a variety of documents that serve as a
 	// user guides and reference documentation for the API. Such documents can
 	// clarify how the API works or provide business context.
 	// All the sections are in the order in which the documentation is declared.
-	Documentation []Documentation `yaml:"documentation"`
+	Documentation []*Documentation `yaml:"documentation"`
 
 	// To apply a trait definition to a method, so that the method inherits the
 	// trait's characteristics, the method MUST be defined by using the is
@@ -784,7 +813,7 @@ type APIDefinition struct {
 	// included in the traits declaration, or b) one or more trait definition
 	// maps.
 	// []map[TraitName]Trait
-	Traits []map[string]Trait `yaml:"traits"`
+	Traits []map[string]*Trait `yaml:"traits"`
 	// TODO: Flatten the arrays of maps here.
 
 	// The resourceTypes and traits properties are declared at the API
@@ -793,7 +822,7 @@ type APIDefinition struct {
 	// in each map, the keys are resourceType or trait names, and the values
 	// are resourceType or trait definitions, respectively.
 	// []map[ResourceTypeName]ResourceType
-	ResourceTypes []map[string]ResourceType `yaml:"resourceTypes"`
+	ResourceTypes []map[string]*ResourceType `yaml:"resourceTypes"`
 	// TODO: Flatten the arrays of maps here.
 
 	// Resources are identified by their relative URI, which MUST begin with a
@@ -802,7 +831,7 @@ type APIDefinition struct {
 	// to the baseUri. A resource defined as a child property of another
 	// resource is called a nested resource, and its property's key is its
 	// URI relative to its parent resource's URI.
-	Resources map[string]Resource `yaml:",regexp:/.*"`
+	Resources map[string]*Resource `yaml:",regexp:/.*"`
 }
 
 // This function receives a path, splits it and traverses the resource

@@ -116,6 +116,7 @@ func ParseFile(filePath string) (*APIDefinition, error) {
 		return nil, ramlError
 	}
 
+	apiDefinition.PostProcessing()
 	// Good.
 	return apiDefinition, nil
 }
